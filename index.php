@@ -96,6 +96,24 @@ function getRealIpAddr() {
     return $_SERVER['REMOTE_ADDR'];
 }
 
+/**
+ * 新增: 隐藏IP地址的中间部分
+ * New: Masks the middle parts of an IP address.
+ * @param string $ip 输入的IP地址 / The input IP address.
+ * @return string 格式化后的IP地址 / The masked IP address string.
+ */
+function maskIpAddress($ip) {
+    $parts = explode('.', $ip);
+    // 检查是否为标准的IPv4地址
+    // Check if it is a standard IPv4 address.
+    if (count($parts) === 4 && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        return $parts[0] . '.xxx.xxx.' . $parts[3];
+    }
+    // 如果不是标准的IPv4地址（例如: "内网地址", "Invalid IP"），则原样返回
+    // If it's not a standard IPv4 (e.g., "内网地址", "Invalid IP"), return it as is.
+    return $ip;
+}
+
 
 // --- 数据库配置 ---
 // --- Database Configuration ---
@@ -516,6 +534,7 @@ if ($dbWorking) {
     <?php if ($viewMode === 'default'): ?>
     <div class="container">
         <div class="header"><h1><i class="fas fa-users"></i>zako人数统计</h1><p class="subtitle">点击下方按钮认证成为zako，每位用户仅限点击一次</p></div>
+        <div class="subtitle">注意:认证后您的IP地址将会存进本站数据库 供他人得知你的归属地</p></div>
         
         <?php if (!empty($dbError)): ?><div class="error-panel"><div class="error-title"><i class="fas fa-exclamation-triangle"></i>操作限制</div><p><?php echo htmlspecialchars($dbError); ?></p></div><?php endif; ?>
         
@@ -538,7 +557,7 @@ if ($dbWorking) {
         <?php if ($dbWorking && $recentUsers): ?>
         <div class="recent-panel">
             <div class="panel-title">
-                <span><i class="fas fa-history"></i> 最近认证的Zako们~</span>
+                <span><i class="fas fa-history"></i> 最近认证的Zako们~ </span>
                 <div class="panel-title-actions">
                     <?php if ($userHasClicked): ?>
                         <button id="edit-nickname-trigger" class="edit-nickname-trigger"><i class="fas fa-pencil-alt"></i> 修改昵称</button>
@@ -580,7 +599,9 @@ if ($dbWorking) {
                                         }
                                     ?>
                                 </div>
-                                <div class="user-ip"><i class="fas fa-network-wired"></i> <?php echo htmlspecialchars($user['ip_address']); ?></div>
+                                <!-- 修改: 调用maskIpAddress函数来格式化IP地址 -->
+                                <!-- Modified: Call the maskIpAddress function to format the IP address -->
+                                <div class="user-ip"><i class="fas fa-network-wired"></i> <?php echo htmlspecialchars(maskIpAddress($user['ip_address'])); ?></div>
                                 <div class="user-location"><i class="fas fa-map-marker-alt"></i><span> <?php echo htmlspecialchars($user['ip_location']); ?> | <i class="fas fa-broadcast-tower"></i> <?php echo htmlspecialchars($user['isp']); ?></span></div>
                                 <div class="user-os"><i class="<?php echo getOSIcon($user['operating_system']); ?>"></i><span> <?php echo htmlspecialchars($user['operating_system']); ?></span></div>
                                 <div class="user-time"><?php echo date('Y-m-d H:i', strtotime($user['click_time'])); ?></div>
@@ -616,6 +637,7 @@ if ($dbWorking) {
         </div>
         <?php endif; ?>
 
+		<footer><p>若您需要删除可联系nahidallkkookk@gmail.com 本站存储的IP地址仅供他人了解你的归属地</p>
         <footer><p>使用 PHP + MySQL 构建|代码部分由Deepseek+Gemini完成</p><p>当前会话ID: <?php echo substr(session_id(), 0, 12); ?>...</p></footer>
         <a href="https://github.com/llll415/zako-click-website">仓库:https://github.com/llll415/zako-click-website</a>
     </div>
@@ -670,7 +692,9 @@ if ($dbWorking) {
                                     }
                                 ?>
                             </td>
-                            <td data-label="IP详情"><?php echo htmlspecialchars($user['ip_address']); ?><span class="user-ip-details"><?php echo htmlspecialchars($user['ip_location']); ?> | <?php echo htmlspecialchars($user['isp']); ?></span></td>
+                            <!-- 修改: 调用maskIpAddress函数来格式化IP地址 -->
+                            <!-- Modified: Call the maskIpAddress function to format the IP address -->
+                            <td data-label="IP详情"><?php echo htmlspecialchars(maskIpAddress($user['ip_address'])); ?><span class="user-ip-details"><?php echo htmlspecialchars($user['ip_location']); ?> | <?php echo htmlspecialchars($user['isp']); ?></span></td>
                             <td data-label="系统"><i class="<?php echo getOSIcon($user['operating_system']); ?> user-os-icon"></i> <?php echo htmlspecialchars($user['operating_system']); ?></td>
                             <td data-label="留言" class="comment-cell">
                                 <?php
