@@ -131,9 +131,11 @@ try {
     // If any error occurs in the try block, roll back the transaction, undoing all uncommitted changes.
     $conn->rollback();
     
-    // 检查是否为唯一键冲突错误（MySQL错误码1062），这通常意味着用户在重复点赞
-    // Check for a unique key violation error (MySQL error code 1062), which usually means the user is making a duplicate like.
-    if ($conn->errno == 1062) { 
+    // --- 关键修复在这里 ---
+    // --- The key fix is here ---
+    // 修改: 使用 $e->getCode() 来从异常对象本身获取错误码，这比 $conn->errno 更可靠
+    // Modified: Use $e->getCode() to get the error code from the exception object itself, which is more reliable than $conn->errno.
+    if ($e->getCode() == 1062) { 
         echo json_encode(['success' => false, 'message' => '你已经点过赞了！']);
     } else {
         // 对于其他类型的异常，返回通用的错误信息
