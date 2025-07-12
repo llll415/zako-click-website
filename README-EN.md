@@ -17,28 +17,25 @@
 
 ---
 
-## 🚀 Key Features
-
-*   **Core "Become a Zako" Functionality:**
-    *   Users can click a button to register and become a "Zako" on the list.
-    *   The total number of Zakos is displayed in real-time.
+### Key Features
 
 *   **User Identification Mechanism:**
-    *   A **three-layer identification system** to prevent duplicate registrations:
-        1.  **PHP Session:** Basic session-level identification.
-        2.  **Client-side UUID:** A unique ID is stored in the browser's `LocalStorage` for persistent identification, even if the user closes the browser or clears their session.
-        3.  **IP + User-Agent Fingerprint:** Acts as a final line of defense against bypass attempts like clearing browser cache.
+    *   A **dual-layer identification system** is implemented to prevent duplicate entries:
+        1.  **PHP Session:** Provides basic, session-level user recognition.
+        2.  **Client-side UUID:** A unique ID is generated and stored in both the browser's `localStorage` and a `cookie`. This ensures persistent identification even if the user closes the browser or clears the session.
+    *   ~~**IP + User-Agent Fingerprinting:** Previously used to prevent circumvention by clearing browser cache.~~ This method has been **deprecated and removed** due to its unreliability.
 
 *   **Interaction:**
-    *   **Like System:** Users can "like" entries from other users. Each person can only like a specific entry once.
-    *   **Nickname Editing:** Users can change their automatically generated nickname.
-    *   **Comment Functionality:** Users can add or edit a comment for their own entry.
-    *   All interactions (liking, editing) are handled via **AJAX** for a smooth, no-refresh experience.
+    *   **Like System:** Users can "like" entries from other users. Each user can only like a specific entry once.
+    *   **Nickname Modification:** Users can change their automatically generated nickname.
+    *   **Commenting Feature:** Users can add or edit a short comment for their own entry.
+    *   All interactions (liking, editing) are handled asynchronously using **AJAX**.
 
 *   **Information Display:**
     *   Automatically fetches and displays the user's **geolocation** and **Internet Service Provider (ISP)**.
-    *   Automatically parses and displays the user's **Operating System** icon and name.
-    *   Shows each user's registration time, IP address, nickname, and comment.
+    *   Automatically parses and displays the user's **operating system** name and a corresponding icon.
+    *   Displays each user's submission time, IP address (masked), nickname, and comment.
+    *   If you accidentally registered and do not want your information stored on the website, you can **cancel your own registration, which will permanently delete all of your associated data** from the site.```
 
 *   **Visuals & Audio:**
     *   Fun sound effects (`zako.mp3`) on button clicks and page interactions.
