@@ -4,7 +4,7 @@
 [![PHP Version](https://img.shields.io/badge/PHP-%3E%3D7.4-8892BF.svg)](https://www.php.net/)
 [![MySQL](https://img.shields.io/badge/Database-MySQL-blue.svg)](https://www.mysql.com/)
 * 一个纯AI生成的zako人数统计网站 ~~Readme大部分也是AI(~~
-
+* **[English-README](https://github.com/llll415/zako-click-website/blob/main/README-EN.md)**
 ---
 
 ### ✨ 线上演示
