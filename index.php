@@ -6,35 +6,17 @@ session_start();
 // --- 辅助函数定义 ---
 // --- Helper Functions Definition ---
 
-/**
- * 安全地获取字符串的第一个字符（兼容多字节，如中文）
- * Safely gets the first character of a string (compatible with multibyte characters like Chinese).
- * @param string $str 输入的字符串 / The input string.
- * @return string 返回第一个字符，如果失败则返回空字符串 / Returns the first character, or an empty string on failure.
- */
 function getFirstChar($str) {
     if (function_exists('mb_substr')) {
-        // 如果mbstring扩展可用，使用它来安全地处理多字节字符
-        // If the mbstring extension is available, use it to safely handle multibyte characters.
         return mb_substr((string)$str, 0, 1, 'UTF-8');
     }
-    // 否则，使用正则表达式作为备用方案
-    // Otherwise, use a regular expression as a fallback.
     preg_match('/./u', (string)$str, $matches);
     return $matches[0] ?? '';
 }
 
-/**
- * 从User-Agent字符串中解析出操作系统名称
- * Parses the operating system name from the User-Agent string.
- * @param string $userAgent 浏览器的User-Agent / The browser's User-Agent string.
- * @return string 解析出的操作系统名称 / The parsed operating system name.
- */
 function getOS($userAgent) {
-    $osPlatform = "未知系统"; // 默认值 / Default value
+    $osPlatform = "未知系统";
     $osArray = [
-        // 正则表达式 => 对应的操作系统名称
-        // Regular Expression => Corresponding OS Name
         '/windows nt 10/i'      => 'Windows 10/11',
         '/windows nt 6.3/i'     => 'Windows 8.1',
         '/windows nt 6.2/i'     => 'Windows 8',
@@ -46,94 +28,65 @@ function getOS($userAgent) {
         '/ipad/i'               => 'iPadOS',
         '/android/i'            => 'Android',
     ];
-    // 遍历数组，找到第一个匹配的操作系统
-    // Iterate through the array to find the first matching OS.
     foreach ($osArray as $regex => $value) {
         if (preg_match($regex, $userAgent)) {
             $osPlatform = $value;
-            break; // 找到后即退出循环 / Exit the loop once a match is found.
+            break;
         }
     }
     return $osPlatform;
 }
 
-/**
- * 根据操作系统名称返回对应的Font Awesome图标类名
- * Returns the corresponding Font Awesome icon class name based on the OS name.
- * @param string $osName 操作系统名称 / The operating system name.
- * @return string Font Awesome的CSS类名 / The Font Awesome CSS class name.
- */
 function getOSIcon($osName) {
-    $osNameLower = strtolower($osName); // 转换为小写以便匹配 / Convert to lowercase for matching.
+    $osNameLower = strtolower($osName);
     if (str_contains($osNameLower, 'windows')) return 'fa-brands fa-windows';
     if (str_contains($osNameLower, 'macos')) return 'fa-brands fa-apple';
     if (str_contains($osNameLower, 'linux')) return 'fa-brands fa-linux';
     if (str_contains($osNameLower, 'ubuntu')) return 'fa-brands fa-ubuntu';
     if (str_contains($osNameLower, 'android')) return 'fa-brands fa-android';
     if (str_contains($osNameLower, 'ios') || str_contains($osNameLower, 'ipad')) return 'fa-brands fa-apple';
-    return 'fa-solid fa-desktop'; // 默认图标 / Default icon.
+    return 'fa-solid fa-desktop';
 }
 
-/**
- * 获取用户真实IP地址的函数，优先检查Cloudflare头
- * A function to get the user's real IP address, prioritizing the Cloudflare header.
- * @return string 用户的IP地址 / The user's IP address.
- */
 function getRealIpAddr() {
-    // 如果网站使用了Cloudflare，此HTTP头包含了用户的真实IP
-    // If the site uses Cloudflare, this HTTP header contains the user's real IP.
     if (isset($_SERVER['HTTP_CF_CONNECTING_IP'])) {
       return $_SERVER['HTTP_CF_CONNECTING_IP'];
     }
-    // 如果网站位于代理之后，此HTTP头可能包含用户的IP
-    // If the site is behind a proxy, this HTTP header may contain the user's IP.
     if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
         $ip = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
-        return trim($ip[0]); // 取第一个IP地址 / Take the first IP address.
+        return trim($ip[0]);
     }
-    // 最后的备用方案，直接获取远程地址
-    // The final fallback, getting the remote address directly.
     return $_SERVER['REMOTE_ADDR'];
 }
 
-/**
- * 新增: 隐藏IP地址的中间部分
- * New: Masks the middle parts of an IP address.
- * @param string $ip 输入的IP地址 / The input IP address.
- * @return string 格式化后的IP地址 / The masked IP address string.
- */
 function maskIpAddress($ip) {
     $parts = explode('.', $ip);
-    // 检查是否为标准的IPv4地址
-    // Check if it is a standard IPv4 address.
     if (count($parts) === 4 && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
         return $parts[0] . '.xxx.xxx.' . $parts[3];
     }
-    // 如果不是标准的IPv4地址（例如: "内网地址", "Invalid IP"），则原样返回
-    // If it's not a standard IPv4 (e.g., "内网地址", "Invalid IP"), return it as is.
     return $ip;
+}
+
+// 【新增】一个辅助函数，用于从Cookie中安全地获取客户端UUID
+// 【New】A helper function to safely get the client UUID from the Cookie.
+function getClientUuidFromCookie() {
+    return $_COOKIE['zako_uuid'] ?? null;
 }
 
 
 // --- 数据库配置 ---
 // --- Database Configuration ---
-// 引入数据库连接信息，使用 require_once 确保只引入一次
-// Include the database connection info, using require_once to ensure it's included only once.
 require_once 'db_config.php';
 
 
 // --- 数据库初始化与检查 ---
 // --- Database Initialization and Check ---
-$dbError = ""; // 用于存储数据库错误的变量 / Variable to store database errors.
-$tableExists = true; // 标志位，表示表是否都存在或被成功创建 / Flag indicating if tables exist or were created successfully.
+$dbError = ""; 
+$tableExists = true; 
 
 if ($conn->connect_error) {
-    // 如果数据库连接失败，记录错误并终止后续操作
-    // If the database connection fails, log the error and stop further operations.
     $dbError = "数据库连接失败: " . $conn->connect_error;
 } else {
-    // 检查并创建 user_clicks 表
-    // Check and create the user_clicks table.
     $createUserTable = "CREATE TABLE IF NOT EXISTS user_clicks (
         id INT AUTO_INCREMENT PRIMARY KEY,
         session_id VARCHAR(255) NOT NULL,
@@ -150,14 +103,11 @@ if ($conn->connect_error) {
         UNIQUE KEY unique_session (session_id),
         UNIQUE KEY unique_client_uuid (client_uuid)
     )";
-    
     if (!$conn->query($createUserTable)) {
         $dbError = "创建 'user_clicks' 表失败: " . $conn->error;
         $tableExists = false;
     }
 
-    // --- 修复: 在此处添加 user_likes 表的创建逻辑 ---
-    // --- FIX: Add the creation logic for the user_likes table here ---
     $createLikesTable = "CREATE TABLE IF NOT EXISTS user_likes (
         id INT AUTO_INCREMENT PRIMARY KEY,
         liker_uuid VARCHAR(36) NOT NULL,
@@ -166,8 +116,6 @@ if ($conn->connect_error) {
         UNIQUE KEY unique_like (liker_uuid, liked_user_id),
         FOREIGN KEY (liked_user_id) REFERENCES user_clicks(id) ON DELETE CASCADE
     )";
-    // 仅当上一步成功时才尝试创建此表，以保证依赖关系正确
-    // Only attempt to create this table if the previous step was successful, ensuring correct dependencies.
     if ($tableExists && !$conn->query($createLikesTable)) {
         $dbError .= ($dbError ? " | " : "") . "创建 'user_likes' 表失败: " . $conn->error;
         $tableExists = false;
@@ -176,65 +124,89 @@ if ($conn->connect_error) {
 
 // --- 业务逻辑 ---
 // --- Business Logic ---
-$dbWorking = $conn && !$conn->connect_error && $tableExists; // 综合判断数据库是否可正常工作 / Overall check if the database is workable.
+$dbWorking = $conn && !$conn->connect_error && $tableExists; 
 $userCount = 0;
 
 if ($dbWorking) {
-    // 获取总认证用户数
-    // Get the total number of certified users.
     $usersResult = $conn->query("SELECT COUNT(id) AS user_count FROM user_clicks");
     if ($usersResult) $userCount = $usersResult->fetch_assoc()['user_count'];
 }
 
-$userHasClicked = false; // 当前访问者是否已认证 / Has the current visitor been certified?
-$currentUserData = null; // 当前访问者的数据库记录 / Database record of the current visitor.
-$currentClientUuid = null; // 当前访问者的持久化UUID / Persistent UUID of the current visitor.
-$likedUserIds = []; // 存储当前访问者已点赞的用户ID列表 / Array to store user IDs liked by the current visitor.
+$userHasClicked = false; 
+$currentUserData = null; 
+$currentClientUuid = null; // 这个变量现在会在新的识别逻辑中被赋值 / This variable will now be assigned in the new identification logic.
+$likedUserIds = []; 
 
-// 用户识别逻辑
-// User identification logic.
+
+// --- 【重构】更健壮的用户识别与状态同步逻辑 ---
+// --- 【Refactor】More Robust User Identification and State Synchronization Logic ---
 if ($dbWorking) {
     $sessionId = session_id();
-    $clientUuidFromPost = $_POST['client_uuid'] ?? null; 
-    $ipAddress = getRealIpAddr();
-    $userAgent = $_SERVER['HTTP_USER_AGENT'];
+    $clientUuidFromCookie = getClientUuidFromCookie();
+    $currentClientUuid = $clientUuidFromCookie; // 无论是否找到用户，都将从cookie获取的UUID作为当前用户的UUID / Assign the UUID from the cookie as the current user's UUID, regardless of whether a user is found.
 
-    // 步骤1：尝试通过 Session ID 查找，这是最直接的方式
-    // Step 1: Try to find by Session ID, which is the most direct method.
-    $stmt = $conn->prepare("SELECT * FROM user_clicks WHERE session_id = ?");
-    $stmt->bind_param("s", $sessionId);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    // 优先级1：使用从Cookie获取的、最可靠的 client_uuid 进行查找
+    // Priority 1: Use the most reliable client_uuid from the Cookie to find the user.
+    if ($clientUuidFromCookie) {
+        $stmt_find_by_uuid = $conn->prepare("SELECT * FROM user_clicks WHERE client_uuid = ?");
+        $stmt_find_by_uuid->bind_param("s", $clientUuidFromCookie);
+        $stmt_find_by_uuid->execute();
+        $result_by_uuid = $stmt_find_by_uuid->get_result();
 
-    if ($result->num_rows > 0) {
-        $userHasClicked = true;
-        $currentUserData = $result->fetch_assoc();
+        if ($result_by_uuid->num_rows > 0) {
+            $userHasClicked = true;
+            $currentUserData = $result_by_uuid->fetch_assoc();
+            
+            // 【核心修复】状态同步：如果数据库中的session_id与当前不符，立即更新它
+            // 【Core Fix】State Synchronization: If the session_id in the database does not match the current one, update it immediately.
+            if ($currentUserData['session_id'] !== $sessionId) {
+                try {
+                    $stmt_update_session = $conn->prepare("UPDATE user_clicks SET session_id = ? WHERE client_uuid = ?");
+                    $stmt_update_session->bind_param("ss", $sessionId, $clientUuidFromCookie);
+                    $stmt_update_session->execute();
+                    $stmt_update_session->close();
+                    // 更新PHP变量中的数据以保持一致
+                    // Update the data in the PHP variable to maintain consistency.
+                    $currentUserData['session_id'] = $sessionId;
+                } catch(Exception $e) {
+                    // 如果因为unique_session键冲突而更新失败，说明新的session_id已被其他记录占用，这不是一个致命错误，可以忽略
+                    // If the update fails due to a unique_session key conflict, it means the new session_id is already taken by another record. This is not a fatal error and can be ignored.
+                }
+            }
+        }
+        $stmt_find_by_uuid->close();
+    }
+
+    // 优先级2：如果通过UUID没找到用户（例如，cookie丢失或首次访问），再尝试使用临时的 session_id 查找
+    // Priority 2: If no user is found by UUID (e.g., cookie lost or first visit), then try to find by the temporary session_id.
+    if (!$userHasClicked) {
+        $stmt_find_by_session = $conn->prepare("SELECT * FROM user_clicks WHERE session_id = ?");
+        $stmt_find_by_session->bind_param("s", $sessionId);
+        $stmt_find_by_session->execute();
+        $result_by_session = $stmt_find_by_session->get_result();
+        if ($result_by_session->num_rows > 0) {
+            $userHasClicked = true;
+            $currentUserData = $result_by_session->fetch_assoc();
+            // 如果通过session找到了用户，但cookie是空的，将数据库的UUID赋给当前UUID
+            // If user found by session but cookie is empty, assign the UUID from DB to the current UUID.
+            if (!$currentClientUuid && !empty($currentUserData['client_uuid'])) {
+                $currentClientUuid = $currentUserData['client_uuid'];
+            }
+        }
+        $stmt_find_by_session->close();
+    }
+    
+    // 标记会话状态
+    // Mark the session state.
+    if ($userHasClicked) {
         $_SESSION['clicked'] = true;
     } else {
-        // 步骤2：如果Session找不到，使用更广泛的规则进行二次检查（防止清空Session等绕过行为）
-        // Step 2: If session is not found, use broader rules for a secondary check (prevents bypasses like clearing session).
         unset($_SESSION['clicked']);
-        $uuidForCheck = $clientUuidFromPost ?? bin2hex(random_bytes(16)); // 使用POST过来的UUID，或生成一个临时的
-        $stmt_check_broader = $conn->prepare(
-            "SELECT * FROM user_clicks WHERE client_uuid = ? OR (ip_address = ? AND user_agent = ?)"
-        );
-        $stmt_check_broader->bind_param("sss", $uuidForCheck, $ipAddress, $userAgent);
-        $stmt_check_broader->execute();
-        $result_broader = $stmt_check_broader->get_result();
-        
-        if ($result_broader->num_rows > 0) {
-            $userHasClicked = true;
-            $currentUserData = $result_broader->fetch_assoc();
-            $_SESSION['clicked'] = true;
-        }
-        $stmt_check_broader->close();
     }
-    $stmt->close();
 
-    // 如果用户已认证，获取他们点过赞的所有用户ID，用于在前端正确显示点赞状态
-    // If the user is authenticated, get all user IDs they have liked to display the like status correctly on the frontend.
-    if ($userHasClicked && $currentUserData && !empty($currentUserData['client_uuid'])) {
-        $currentClientUuid = $currentUserData['client_uuid'];
+    // 如果用户已认证，获取他们点过赞的所有用户ID
+    // If the user is authenticated, get all the user IDs they have liked.
+    if ($userHasClicked && $currentClientUuid) {
         $stmt_likes = $conn->prepare("SELECT liked_user_id FROM user_likes WHERE liker_uuid = ?");
         $stmt_likes->bind_param("s", $currentClientUuid);
         $stmt_likes->execute();
@@ -262,15 +234,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['click']) && !$userHas
         if (empty($clientUuid)) {
              $dbError = "客户端标识丢失，无法认证。请确保浏览器支持 LocalStorage 且未被禁用。";
         } else {
-            // 通过IP查询地理位置和运营商信息
-            // Query for geolocation and ISP info via IP.
             $location = "未知归属地";
             $isp = "未知运营商";
             $defaultNickname = "一位匿名Zako"; 
 
             if ($ipAddress && filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
                 $apiUrl = "https://ip9.com.cn/get?ip={$ipAddress}";
-                $apiResponse = @file_get_contents($apiUrl); // 使用@抑制可能的错误输出 / Use @ to suppress potential error output.
+                $apiResponse = @file_get_contents($apiUrl);
                 if ($apiResponse) {
                     $data = json_decode($apiResponse, true);
                     if ($data && isset($data['ret']) && $data['ret'] == 200 && isset($data['data'])) {
@@ -292,8 +262,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['click']) && !$userHas
             }
             
             try {
-                // 插入新用户记录
-                // Insert the new user record.
                 $stmt = $conn->prepare("INSERT INTO user_clicks (session_id, client_uuid, nickname, ip_address, user_agent, operating_system, ip_location, isp) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->bind_param("ssssssss", $sessionId, $clientUuid, $defaultNickname, $ipAddress, $userAgent, $os, $location, $isp);
                 if ($stmt->execute()) {
@@ -302,8 +270,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['click']) && !$userHas
                     $userCount++;
                 }
             } catch (Exception $e) { 
-                // 如果插入失败是因为唯一键冲突 (例如，同一个UUID的用户已存在)，也视为用户已认证
-                // If insertion fails due to a unique key conflict (e.g., user with the same UUID already exists), also consider the user as certified.
                 if ($conn->errno == 1062) {
                     $userHasClicked = true;
                     $_SESSION['clicked'] = true;
@@ -314,8 +280,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['click']) && !$userHas
         }
     } else { $dbError = "数据库不可用，无法记录点击"; }
     
-    // 使用Post/Redirect/Get模式，防止刷新页面时重复提交表单
-    // Use the Post/Redirect/Get pattern to prevent form resubmission on page refresh.
     header("Location: ".$_SERVER['PHP_SELF']);
     exit;
 }
@@ -329,19 +293,13 @@ $viewMode = $_GET['view'] ?? 'default';
 $recentUsers = [];
 $allUsers = [];
 if ($dbWorking) {
-    // 查询列表所需的字段，包含点赞数
-    // The fields required for the list, including the like count.
     $fields = "id, session_id, client_uuid, nickname, ip_address, click_time, operating_system, ip_location, isp, comment, likes_count";
     if ($viewMode === 'all') {
-        // 查看所有用户
-        // View all users.
         $result = $conn->query("SELECT $fields FROM user_clicks ORDER BY click_time DESC");
         if ($result) {
             $allUsers = $result->fetch_all(MYSQLI_ASSOC);
         }
     } else {
-        // 默认只看最近5位用户
-        // Default to viewing only the 5 most recent users.
         $recentUsers = $conn->query("SELECT $fields FROM user_clicks ORDER BY click_time DESC LIMIT 5");
     }
 }
@@ -355,8 +313,6 @@ if ($dbWorking) {
     <title>Zako人数统计</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        /* 您的原有CSS，无需改动 */
-        /* Your original CSS, no changes needed */
         @font-face { font-family: '萝莉体 第二版'; src: url('萝莉体_第二版.woff2') format('woff2'); font-weight: normal; font-style: normal; font-display: swap; }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: '萝莉体 第二版', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         html { scroll-behavior: smooth; }
@@ -384,6 +340,22 @@ if ($dbWorking) {
         .panel-title-actions { display: flex; gap: 10px; }
         .edit-nickname-trigger { background: #3498db; color: white; border: none; border-radius: 8px; padding: 5px 10px; font-size: 0.9rem; cursor: pointer; transition: background 0.3s; }
         .edit-nickname-trigger:hover { background: #2980b9; }
+        .delete-user-trigger {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .delete-user-trigger:hover {
+            background: #c0392b;
+        }
         .recent-users { display: flex; flex-direction: column; gap: 15px; }
         .user-card { 
             background: rgba(255, 255, 255, 0.6); 
@@ -462,21 +434,17 @@ if ($dbWorking) {
         .comment-save-btn:hover { background: #2ecc71; }
         .comment-cancel-btn { background: #e74c3c; color: white; }
         .comment-cancel-btn:hover { background: #c0392b; }
-        
-        /* 新增: 点赞功能相关样式 / New: Styles for the like feature */
         .user-avatar-container { display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0; }
         .like-section { display: flex; align-items: center; justify-content: center; gap: 5px; color: #e74c3c; }
         .like-btn { background: none; border: none; cursor: pointer; color: #e74c3c; font-size: 1.1rem; padding: 2px; transition: transform 0.2s, color 0.2s; }
         .like-btn:hover:not(:disabled) { transform: scale(1.2); }
-        .like-btn .fa-solid { color: #e74c3c; } /* 已点赞的实心图标颜色 / Color for the solid (liked) icon */
-        .like-btn .fa-regular { color: #7f8c8d; } /* 未点赞的空心图标颜色 / Color for the regular (not liked) icon */
+        .like-btn .fa-solid { color: #e74c3c; } 
+        .like-btn .fa-regular { color: #7f8c8d; } 
         .like-btn:disabled { cursor: not-allowed; }
-        .like-btn:disabled .fa-regular { color: #bdc3c7; } /* 自己帖子的禁用图标颜色 / Disabled icon color for own post */
+        .like-btn:disabled .fa-regular { color: #bdc3c7; } 
         .like-count { font-size: 0.9rem; font-weight: bold; }
         .like-animation { animation: like-pop 0.4s ease-out; }
         @keyframes like-pop { 0% { transform: scale(1); } 50% { transform: scale(1.4); } 100% { transform: scale(1); } }
-        /* 结束: 点赞功能相关样式 / End: Styles for the like feature */
-
         .error-panel { background-color: rgba(255, 235, 238, 0.9); border-left: 4px solid #f44336; border-radius: 8px; padding: 12px 15px; margin-bottom: 20px; text-align: left; }
         .error-title { color: #f44336; font-weight: bold; margin-bottom: 5px; display: flex; align-items: center; gap: 8px; }
         footer { margin-top: 30px; color: #333; font-size: 0.9rem; text-align: center; text-shadow: 0px 1px 2px rgba(255, 255, 255, 0.7); }
@@ -534,7 +502,7 @@ if ($dbWorking) {
     <?php if ($viewMode === 'default'): ?>
     <div class="container">
         <div class="header"><h1><i class="fas fa-users"></i>zako人数统计</h1><p class="subtitle">点击下方按钮认证成为zako，每位用户仅限点击一次</p></div>
-        <div class="subtitle">注意:认证后您的IP地址将会存进本站数据库 供他人得知你的归属地</p></div>
+        <div class="subtitle">注意:认证后您的IP地址将会存进本站数据库 仅供他人得知你的归属地</p></div>
         
         <?php if (!empty($dbError)): ?><div class="error-panel"><div class="error-title"><i class="fas fa-exclamation-triangle"></i>操作限制</div><p><?php echo htmlspecialchars($dbError); ?></p></div><?php endif; ?>
         
@@ -560,6 +528,7 @@ if ($dbWorking) {
                 <span><i class="fas fa-history"></i> 最近认证的Zako们~ </span>
                 <div class="panel-title-actions">
                     <?php if ($userHasClicked): ?>
+                        <button id="delete-user-trigger" class="delete-user-trigger"><i class="fas fa-user-slash"></i> 取消认证</button>
                         <button id="edit-nickname-trigger" class="edit-nickname-trigger"><i class="fas fa-pencil-alt"></i> 修改昵称</button>
                     <?php endif; ?>
                 </div>
@@ -568,14 +537,10 @@ if ($dbWorking) {
                 <?php if ($recentUsers->num_rows > 0): ?>
                     <?php while($user = $recentUsers->fetch_assoc()): ?>
                         <div class="user-card" data-user-id="<?php echo $user['id']; ?>">
-                            <!-- 修改/新增: 头像和点赞功能的容器 / Modified/New: Container for avatar and like feature -->
                             <div class="user-avatar-container">
                                 <div class="user-avatar"><?php echo htmlspecialchars(getFirstChar($user['nickname'])); ?></div>
-                                <!-- 新增: 点赞区域 / New: Like section -->
                                 <div class="like-section">
                                 <?php
-                                    // 新增: 判断点赞按钮状态的逻辑
-                                    // New: Logic to determine the state of the like button.
                                     $isCurrentUserPost = ($currentClientUuid && $currentClientUuid === $user['client_uuid']);
                                     $hasLiked = in_array($user['id'], $likedUserIds);
                                     $canLike = $userHasClicked && !$isCurrentUserPost;
@@ -594,13 +559,13 @@ if ($dbWorking) {
                                 <div class="user-nickname">
                                     <?php 
                                         echo htmlspecialchars($user['nickname']); 
-                                        if ($userHasClicked && $currentUserData && $user['session_id'] === $currentUserData['session_id']) {
+                                        // 【修复】判断是否为“你”的逻辑现在更可靠，直接使用$currentClientUuid进行比较
+                                        // 【Fix】The logic to determine if it is "you" is now more reliable, comparing directly with $currentClientUuid.
+                                        if ($userHasClicked && $currentClientUuid && $user['client_uuid'] === $currentClientUuid) {
                                             echo ' <span class="you-indicator">(你)</span>';
                                         }
                                     ?>
                                 </div>
-                                <!-- 修改: 调用maskIpAddress函数来格式化IP地址 -->
-                                <!-- Modified: Call the maskIpAddress function to format the IP address -->
                                 <div class="user-ip"><i class="fas fa-network-wired"></i> <?php echo htmlspecialchars(maskIpAddress($user['ip_address'])); ?></div>
                                 <div class="user-location"><i class="fas fa-map-marker-alt"></i><span> <?php echo htmlspecialchars($user['ip_location']); ?> | <i class="fas fa-broadcast-tower"></i> <?php echo htmlspecialchars($user['isp']); ?></span></div>
                                 <div class="user-os"><i class="<?php echo getOSIcon($user['operating_system']); ?>"></i><span> <?php echo htmlspecialchars($user['operating_system']); ?></span></div>
@@ -608,7 +573,11 @@ if ($dbWorking) {
                             </div>
 
                             <div class="user-comment-column">
-                                <?php $isCurrentUserEditable = $userHasClicked && $currentUserData && $user['session_id'] === $currentUserData['session_id']; ?>
+                                <?php 
+                                    // 【修复】判断评论是否可编辑的逻辑也使用$currentClientUuid
+                                    // 【Fix】The logic to determine if a comment is editable also uses $currentClientUuid.
+                                    $isCurrentUserEditable = $userHasClicked && $currentClientUuid && $user['client_uuid'] === $currentClientUuid; 
+                                ?>
                                 <div class="user-comment <?php if ($isCurrentUserEditable) echo 'editable'; ?>" 
                                      data-current-comment="<?php echo htmlspecialchars($user['comment'] ?? ''); ?>">
                                     <?php 
@@ -637,9 +606,9 @@ if ($dbWorking) {
         </div>
         <?php endif; ?>
 
-		<footer><p>若您需要删除可联系nahidallkkookk@gmail.com 本站存储的IP地址仅供他人了解你的归属地</p>
+		<footer><p>若您需要删除(取消认证按钮无效)可联系nahidallkkookk@gmail.com 本站存储的IP地址仅供他人了解你的归属地</p>
         <footer><p>使用 PHP + MySQL 构建|代码部分由Deepseek+Gemini完成</p><p>当前会话ID: <?php echo substr(session_id(), 0, 12); ?>...</p></footer>
-        <a href="https://github.com/llll415/zako-click-website">仓库:https://github.com/llll415/zako-click-website</a>
+        <a href="https://github.com/llll415/zako-click-website">源代码已开放-仓库:https://github.com/llll415/zako-click-website</a>
     </div>
     
     <?php else: ?>
@@ -687,13 +656,11 @@ if ($dbWorking) {
                             <td data-label="昵称">
                                 <?php 
                                     echo htmlspecialchars($user['nickname']); 
-                                    if ($userHasClicked && $currentUserData && $user['session_id'] === $currentUserData['session_id']) {
+                                    if ($userHasClicked && $currentClientUuid && $user['client_uuid'] === $currentClientUuid) {
                                         echo ' <span class="you-indicator">(你)</span>';
                                     }
                                 ?>
                             </td>
-                            <!-- 修改: 调用maskIpAddress函数来格式化IP地址 -->
-                            <!-- Modified: Call the maskIpAddress function to format the IP address -->
                             <td data-label="IP详情"><?php echo htmlspecialchars(maskIpAddress($user['ip_address'])); ?><span class="user-ip-details"><?php echo htmlspecialchars($user['ip_location']); ?> | <?php echo htmlspecialchars($user['isp']); ?></span></td>
                             <td data-label="系统"><i class="<?php echo getOSIcon($user['operating_system']); ?> user-os-icon"></i> <?php echo htmlspecialchars($user['operating_system']); ?></td>
                             <td data-label="留言" class="comment-cell">
@@ -738,24 +705,31 @@ if ($dbWorking) {
         // --- 客户端唯一标识符 (UUID) 管理 ---
         // --- Client-side Unique Identifier (UUID) Management ---
         const uuidInput = document.getElementById('client-uuid-input');
-        // 修改: 在全局作用域声明，以便点赞功能等其他函数也能访问
-        // Modified: Declare in global scope so other functions like the like feature can access it.
         let clientUUID = null; 
         
-        /**
-         * 生成一个 v4 版本的 UUID (Universally Unique Identifier)
-         * Generates a v4 UUID (Universally Unique Identifier).
-         * @returns {string} 返回一个UUID字符串 / Returns a UUID string.
-         */
         function generateUUIDv4() {
             return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
                 (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
             );
         }
 
+        // 【新增】设置Cookie的函数
+        // 【New】Function to set a cookie.
+        function setCookie(name, value, days) {
+            let expires = "";
+            if (days) {
+                const date = new Date();
+                date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+                expires = "; expires=" + date.toUTCString();
+            }
+            // 设置一个长期的、全站有效的cookie
+            // Set a long-term, site-wide cookie.
+            document.cookie = name + "=" + (value || "")  + expires + "; path=/; SameSite=Lax";
+        }
+
         /**
-         * 获取或生成并存储客户端UUID。这个UUID用于持久化识别一个浏览器，即使用户清空了Session。
-         * Gets or generates and stores the client-side UUID. This UUID is used to persistently identify a browser, even if the user clears their session.
+         * 【修改】获取或生成客户端UUID，并同时存入LocalStorage和Cookie
+         * 【Modified】Gets or generates the client UUID and stores it in both LocalStorage and a Cookie.
          */
         function getOrSetClientUUID() {
             clientUUID = localStorage.getItem('zako_uuid');
@@ -763,8 +737,10 @@ if ($dbWorking) {
                 clientUUID = generateUUIDv4();
                 localStorage.setItem('zako_uuid', clientUUID);
             }
-            // 将UUID设置到隐藏的表单输入框中，以便随认证请求一起提交
-            // Set the UUID to the hidden form input, so it's submitted with the certification request.
+            // 将UUID设置到Cookie中，以便PHP后端可以读取它
+            // Set the UUID in a cookie so the PHP backend can read it.
+            setCookie('zako_uuid', clientUUID, 365); 
+
             if(uuidInput) {
                 uuidInput.value = clientUUID;
             }
@@ -772,80 +748,78 @@ if ($dbWorking) {
         
         getOrSetClientUUID(); // 页面加载时立即执行 / Execute immediately on page load.
 
-        // --- 新增: 点赞功能的客户端逻辑 ---
-        // --- New: Client-side logic for the like feature ---
-        // 使用事件委托，将点击事件监听器添加到document.body上，以处理所有.like-btn的点击
-        // Use event delegation by adding a click listener to document.body to handle all .like-btn clicks.
+        // --- 点赞功能的客户端逻辑 (无变动) ---
+        // --- Client-side logic for the like feature (no changes) ---
         document.body.addEventListener('click', function(e) {
-            // e.target.closest('.like-btn') 会找到被点击的元素或其最近的.like-btn祖先
-            // e.target.closest('.like-btn') finds the clicked element or its nearest .like-btn ancestor.
             const likeBtn = e.target.closest('.like-btn');
-            // 如果没点到按钮，或按钮是禁用的，则什么都不做
-            // If the click was not on a button, or the button is disabled, do nothing.
             if (!likeBtn || likeBtn.disabled) {
                 return;
             }
-            
-            e.preventDefault(); // 防止可能的默认行为 / Prevent potential default behaviors.
-            // 立即禁用按钮，防止用户在请求完成前重复点击
-            // Immediately disable the button to prevent the user from clicking again before the request is complete.
+            e.preventDefault();
             likeBtn.disabled = true;
-            
             const userIdToLike = likeBtn.dataset.userId;
             const likeIcon = likeBtn.querySelector('i');
             const likeCountSpan = likeBtn.nextElementSibling;
-
-            // 创建一个FormData对象来发送POST数据
-            // Create a FormData object to send POST data.
             const formData = new FormData();
             formData.append('user_id', userIdToLike);
-            formData.append('client_uuid', clientUUID); // 发送当前用户的UUID作为点赞者标识
-
-            // 使用fetch API向后端发送异步请求
-            // Use the fetch API to send an asynchronous request to the backend.
-            fetch('like_post.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json()) // 将响应体解析为JSON / Parse the response body as JSON.
+            formData.append('client_uuid', clientUUID);
+            fetch('like_post.php', { method: 'POST', body: formData })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // 点赞成功: 更新前端UI显示
-                    // Like successful: update the frontend UI.
-                    likeCountSpan.textContent = data.new_count; // 更新点赞计数
-                    likeIcon.classList.remove('fa-regular'); // 移除空心图标
-                    likeIcon.classList.add('fa-solid'); // 添加实心图标
-                    likeIcon.parentElement.classList.add('like-animation'); // 添加动画效果
+                    likeCountSpan.textContent = data.new_count;
+                    likeIcon.classList.remove('fa-regular');
+                    likeIcon.classList.add('fa-solid');
+                    likeIcon.parentElement.classList.add('like-animation');
                 } else {
-                    // 点赞失败: 弹出错误信息
-                    // Like failed: show an alert with the error message.
                     alert(data.message || '点赞失败，请稍后再试。');
-                    // 如果错误不是“已点过”或“不能点自己”这种永久性错误，则重新启用按钮让用户可以重试
-                    // If the error isn't a permanent one like "already liked" or "can't like self", re-enable the button so the user can try again.
                     if(data.message !== '你已经点过赞了！' && data.message !== '你不能给自己点赞哦！') {
                         likeBtn.disabled = false;
                     }
                 }
             })
             .catch(error => {
-                // 处理网络错误或其他fetch过程中的异常
-                // Handle network errors or other exceptions during the fetch process.
                 console.error('Like Error:', error);
                 alert('点赞时发生网络错误。');
-                likeBtn.disabled = false; // 发生网络错误时，允许用户重试
+                likeBtn.disabled = false;
             });
         });
+        
+        // --- 取消认证功能的客户端逻辑 (包含强制刷新修复) ---
+        // --- Client-side logic for the cancel certification feature (includes force-reload fix) ---
+        const deleteUserBtn = document.getElementById('delete-user-trigger');
+        if (deleteUserBtn) {
+            deleteUserBtn.addEventListener('click', () => {
+                const isConfirmed = confirm('您确定要取消认证吗？\n此操作将永久删除您的所有数据，且无法撤销。');
+                if (isConfirmed) {
+                    const formData = new FormData();
+                    formData.append('client_uuid', clientUUID);
+                    fetch('delete_user.php', { method: 'POST', body: formData })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('您的认证信息已删除。');
+                            location.reload(true); // 使用 true 参数强制从服务器刷新 / Use the true parameter to force a reload from the server.
+                        } else {
+                            alert('操作失败: ' + (data.message || '未知错误'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Delete User Error:', error);
+                        alert('取消认证时发生网络错误。');
+                    });
+                }
+            });
+        }
 
-        // 您原有的JS代码
-        // Your original JS code.
+        // --- 其他原有JS代码 (无变动) ---
+        // --- Other original JS code (no changes) ---
         const fireworkColors = ['#ff6b6b', '#ff8e53', '#feca57', '#48dbfb', '#1dd1a1', '#ff9ff3'];
         const clickSound = document.getElementById('click-audio');
         const clickBtn = document.getElementById('click-btn');
         function createFireworks(x, y) { for (let i = 0; i < 20; i++) { const particle = document.createElement('div'); particle.className = 'particle'; particle.style.left = `${x}px`; particle.style.top = `${y}px`; particle.style.backgroundColor = fireworkColors[Math.floor(Math.random() * fireworkColors.length)]; const angle = Math.random() * Math.PI * 2; const distance = Math.random() * 80 + 50; const endX_relative = Math.cos(angle) * distance; const endY_relative = Math.sin(angle) * distance - 50; particle.style.setProperty('--end-x-rel', `${endX_relative}px`); particle.style.setProperty('--end-y-rel', `${endY_relative}px`); document.body.appendChild(particle); setTimeout(() => particle.remove(), 700); } }
         document.addEventListener('mousemove', function(e) { const trail = document.createElement('div'); trail.className = 'mouse-trail'; document.body.appendChild(trail); trail.style.left = e.clientX + 'px'; trail.style.top = e.clientY + 'px'; setTimeout(() => trail.remove(), 500); });
-        // 修改: 防止点赞按钮等可交互元素触发全局的点击效果
-        // Modified: Prevent interactive elements like the like button from triggering the global click effect.
-        document.addEventListener('mousedown', function(e) { if (e.target.closest('.click-btn, a, .edit-nickname-trigger, .modal-overlay, .user-comment.editable, .like-btn')) { return; } if (clickSound) { clickSound.currentTime = 0; clickSound.play().catch(e => {}); } const textPop = document.createElement('div'); textPop.innerHTML = '杂鱼~♡ 杂鱼~♡'; textPop.classList.add('click-text-pop'); document.body.appendChild(textPop); textPop.style.left = `${e.clientX}px`; textPop.style.top = `${e.clientY}px`; setTimeout(() => textPop.remove(), 800); createFireworks(e.clientX, e.clientY); });
+        document.addEventListener('mousedown', function(e) { if (e.target.closest('.click-btn, a, .edit-nickname-trigger, .delete-user-trigger, .modal-overlay, .user-comment.editable, .like-btn')) { return; } if (clickSound) { clickSound.currentTime = 0; clickSound.play().catch(e => {}); } const textPop = document.createElement('div'); textPop.innerHTML = '杂鱼~♡ 杂鱼~♡'; textPop.classList.add('click-text-pop'); document.body.appendChild(textPop); textPop.style.left = `${e.clientX}px`; textPop.style.top = `${e.clientY}px`; setTimeout(() => textPop.remove(), 800); createFireworks(e.clientX, e.clientY); });
         if (clickBtn) { clickBtn.addEventListener('mousedown', function() { if (clickSound) { clickSound.currentTime = 0; clickSound.play().catch(e => {}); } }); }
         const nicknameModalOverlay = document.getElementById('nickname-modal-overlay');
         const editNicknameTriggerBtn = document.getElementById('edit-nickname-trigger');
@@ -889,32 +863,19 @@ if ($dbWorking) {
                 commentColumn.innerHTML = '';
                 commentColumn.appendChild(editorWrapper);
                 textarea.focus();
-                textarea.addEventListener('input', () => {
-                    charCounter.textContent = `${textarea.value.length}/100`;
-                });
-                cancelBtn.addEventListener('click', () => {
-                    commentColumn.innerHTML = '';
-                    commentColumn.appendChild(editableComment);
-                });
+                textarea.addEventListener('input', () => { charCounter.textContent = `${textarea.value.length}/100`; });
+                cancelBtn.addEventListener('click', () => { commentColumn.innerHTML = ''; commentColumn.appendChild(editableComment); });
                 saveBtn.addEventListener('click', () => {
                     const newComment = textarea.value;
-                    if (newComment.length > 100) {
-                        alert('留言不能超过100个字符哦！');
-                        return;
-                    }
+                    if (newComment.length > 100) { alert('留言不能超过100个字符哦！'); return; }
                     const formData = new FormData();
                     formData.append('comment', newComment);
                     saveBtn.textContent = '保存中...';
                     saveBtn.disabled = true;
-                    fetch('update_comment.php', {
-                        method: 'POST',
-                        body: formData
-                    })
+                    fetch('update_comment.php', { method: 'POST', body: formData })
                     .then(response => response.json())
                     .then(data => {
-                        if (data.success) {
-                            location.reload();
-                        } else {
+                        if (data.success) { location.reload(); } else {
                             alert('更新留言失败: ' + (data.message || '未知错误'));
                             saveBtn.textContent = '保存';
                             saveBtn.disabled = false;
@@ -932,4 +893,4 @@ if ($dbWorking) {
     });
     </script>
 </body>
-</html>
+</html>```
