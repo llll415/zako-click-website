@@ -605,10 +605,11 @@ if ($dbWorking) {
             <a href="?view=all" class="view-all-btn"><i class="fas fa-list-ul"></i> 查看所有已认证的Zako~</a>
         </div>
         <?php endif; ?>
-
-		<footer><p>若您需要删除(取消认证按钮无效)可联系nahidallkkookk@gmail.com 本站存储的IP地址仅供他人了解你的归属地</p>
         <footer><p>使用 PHP + MySQL 构建|代码部分由Deepseek+Gemini完成</p><p>当前会话ID: <?php echo substr(session_id(), 0, 12); ?>...</p></footer>
-        <a href="https://github.com/llll415/zako-click-website">源代码已开放-仓库:https://github.com/llll415/zako-click-website</a>
+        <a href="https://github.com/llll415/zako-click-website">源代码已开放-GitHub仓库</a>
+        <div>
+			<a href="https://www.ip9.com.cn">致谢:免费IP归属地查询API</a>
+        </div>
     </div>
     
     <?php else: ?>
